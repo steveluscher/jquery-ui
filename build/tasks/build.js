@@ -170,6 +170,77 @@ grunt.registerMultiTask( "md5", "Create list of md5 hashes for CDN uploads", fun
 	grunt.log.writeln( "Wrote " + this.data.dest + " with " + hashes.length + " hashes" );
 });
 
+grunt.registerTask( "build_release", "Build the pre-release package", function() {
+	var builder, done, downloadBuilder, files, jqueryUi,
+		target = "dist/" + grunt.template.process( grunt.config( "files.dist" ), grunt.config() ) + "/",
+		targetZip = target.replace( /\/$/, "" ) + ".zip";
+
+	try {
+		require.resolve( "download.jqueryui.com" );
+	} catch( error ) {
+		throw new Error( "You need to manually install download.jqueryui.com for this task to work" );
+	}
+
+	downloadBuilder = require( "download.jqueryui.com" );
+	jqueryUi = new downloadBuilder.JqueryUi( path.resolve( __dirname + "/../../" ) );
+	builder = new downloadBuilder.Builder( jqueryUi, ":all:", null, {
+		addTests: true,
+		bundleSuffix: "",
+		skipDocs: true,
+		skipTheme: true
+	});
+
+	done = this.async();
+	async.series([
+		function( callback ) {
+			grunt.log.writeln( "Building release files" );
+			try {
+				builder.build(function( err, build ) {
+					files = build.map(function( file ) {
+						// Strip first path
+						file.path = file.path.replace( /^[^\/]*\//, "" );
+						return file;
+					}).filter(function( file ) {
+						return (/^development-bundle/).test( file.path );
+					}).map(function( file ) {
+						file.path = file.path.replace( /^development-bundle\//, "" );
+						return file;
+					}).map(function( file ) {
+						try {
+							grunt.file.write( target + file.path, file.data );
+						} catch( err ) {
+							return callback( err );
+						}
+						return file;
+					});
+					grunt.log.ok( "Built at " + target );
+					callback();
+				});
+			} catch( err ) {
+				return callback( err );
+			}
+		},
+		function( callback ) {
+			grunt.log.writeln( "Building release zip package" );
+			try {
+				downloadBuilder.util.createZip( files, targetZip, function( err ) {
+					if ( !err ) {
+						grunt.log.ok( "Built zip package at " + targetZip );
+					}
+					return callback( err );
+				});
+			} catch ( err ) {
+				return callback( err );
+			}
+		}
+	], function( err ) {
+		if ( err ) {
+			grunt.log.error( err );
+		}
+		return done( !err );
+	});
+});
+
 grunt.registerTask( "generate_themes", function() {
 	var download, done,
 		distFolder = "dist/" + grunt.template.process( grunt.config( "files.dist" ), grunt.config() ),
