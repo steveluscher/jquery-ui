@@ -1,3 +1,5 @@
+var async = require( "async" );
+
 module.exports = function( grunt ) {
 
 "use strict";
@@ -242,8 +244,8 @@ grunt.registerTask( "build_release", "Build the pre-release package", function()
 });
 
 grunt.registerTask( "generate_themes", function() {
-	var download, done,
-		distFolder = "dist/" + grunt.template.process( grunt.config( "files.dist" ), grunt.config() ),
+	var done, downloadBuilder, jqueryUi, themeGallery,
+		bundleFiles = [],
 		target = "dist/" + grunt.template.process( grunt.config( "files.themes" ), grunt.config() ) + "/";
 
 	try {
@@ -252,24 +254,51 @@ grunt.registerTask( "generate_themes", function() {
 		throw new Error( "You need to manually install download.jqueryui.com for this task to work" );
 	}
 
-	download = require( "download.jqueryui.com" )({
-		config: {
-			"jqueryUi": {
-				"stable": { "path": path.resolve( __dirname + "/../../" + distFolder ) }
-			},
-			"jquery": "skip"
-		}
-	});
+	downloadBuilder = require( "download.jqueryui.com" );
+	jqueryUi = new downloadBuilder.JqueryUi( path.resolve( __dirname + "/../../" ) );
+	themeGallery = downloadBuilder.themeGallery( jqueryUi );
 
 	done = this.async();
-	download.buildThemesBundle(function( error, files ) {
-		if ( error ) {
-			grunt.log.error( error );
+	async.mapSeries( themeGallery, function( theme, callback ) {
+		var builder = new downloadBuilder.Builder( jqueryUi, ":all:", theme ),
+			folderName = theme.folderName();
+		builder.build(function( err, files ) {
+			if ( err ) {
+				return callback( err );
+			}
+			// Add theme files.
+			files
+				// Pick only theme files we need on the bundle.
+				.filter(function( file ) {
+					var themeCssOnlyRe = new RegExp( "development-bundle/themes/" + folderName + "/jquery.ui.theme.css" ),
+						themeDirRe = new RegExp( "css/" + folderName );
+					if ( themeCssOnlyRe.test( file.path ) || themeDirRe.test( file.path ) ) {
+						return true;
+					}
+					return false;
+				})
+				// Convert paths the way bundle needs and add it into bundleFiles.
+				.forEach(function( file ) {
+					// 1: Remove initial package name eg. "jquery-ui-1.10.0.custom".
+					// 2: Make jquery-ui-1.10.0.custom.css into jquery-ui.css, or jquery-ui-1.10.0.custom.min.css into jquery-ui.min.css
+					file.path = file.path
+						.split( "/" ).slice( 1 ).join( "/" ) /* 1 */
+						.replace( /development-bundle\/themes/, "css" )
+						.replace( /css/, "themes" )
+						.replace( /jquery-ui-.*?(\.min)*\.css/, "jquery-ui$1.css" ); /* 2 */
+					bundleFiles.push( file );
+				});
+
+			callback( null, files );
+		});
+	}, function( err ) {
+		if ( err ) {
+			grunt.log.error( err );
 			return done( false );
 		}
 
 		done(
-			files.every(function( file ) {
+			bundleFiles.every(function( file ) {
 				try {
 					grunt.file.write( target + file.path, file.data );
 				} catch( err ) {
