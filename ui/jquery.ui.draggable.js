@@ -1,3 +1,4 @@
+
 /*!
  * jQuery UI Draggable @VERSION
  * http://jqueryui.com
@@ -77,6 +78,9 @@ $.widget("ui.draggable", $.ui.mouse, {
 
 		// Set a flag; we don't know if this click is going to result in a drag yet
 		this._clickResultedInDrag = false;
+
+		// Blur any active element
+		$(document.activeElement).blur();
 
 		// among others, prevent a drag on a resizable-handle
 		if (this.helper || o.disabled || $(event.target).closest(".ui-resizable-handle").length > 0) {
