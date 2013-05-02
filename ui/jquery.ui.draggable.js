@@ -49,6 +49,7 @@ $.widget("ui.draggable", $.ui.mouse, {
 		start: null,
 		stop: null
 	},
+	_clickResultedInDrag: false,
 	_create: function() {
 
 		if (this.options.helper === "original" && !(/^(?:r|a|f)/).test(this.element.css("position"))) {
@@ -77,6 +78,9 @@ $.widget("ui.draggable", $.ui.mouse, {
 	_mouseCapture: function(event) {
 
 		var o = this.options;
+
+		// Set a flag; we don't know if this click is going to result in a drag yet
+		this._clickResultedInDrag = false;
 
 		// Blur any active element
 		$(document.activeElement).blur();
@@ -109,6 +113,9 @@ $.widget("ui.draggable", $.ui.mouse, {
 	_mouseStart: function(event) {
 
 		var o = this.options;
+
+		// The drag has begun
+		this._clickResultedInDrag = true;
 
 		//Create and append the visible helper
 		this.helper = this._createHelper(event);
@@ -266,6 +273,11 @@ $.widget("ui.draggable", $.ui.mouse, {
 			$.ui.ddmanager.dragStop(this, event);
 		}
 
+		if(!this._clickResultedInDrag) {
+			// No drag happened between the time we moused-down on the draggable and now, so trigger focus on the element
+			this.element.focus();
+		}
+		
 		return $.ui.mouse.prototype._mouseUp.call(this, event);
 	},
 
