@@ -41,7 +41,8 @@ $.widget("ui.droppable", {
 	},
 	_create: function() {
 
-		var o = this.options,
+		var proportions,
+			o = this.options,
 			accept = o.accept;
 
 		this.isover = false;
@@ -51,8 +52,20 @@ $.widget("ui.droppable", {
 			return d.is(accept);
 		};
 
-		//Store the droppable's proportions
-		this.proportions = { width: this.element[0].offsetWidth, height: this.element[0].offsetHeight };
+		this.proportions = function( /* valueToWrite */ ) {
+			if ( arguments.length ) {
+				// Store the droppable's proportions
+				proportions = arguments[0];
+			} else {
+				// Retrieve or derive the droppable's proportions
+				return proportions ?
+					proportions :
+					proportions = {
+						width: this.element[0].offsetWidth,
+						height: this.element[0].offsetHeight
+					};
+			}
+		};
 
 		// Add the reference and positions to the manager
 		$.ui.ddmanager.droppables[o.scope] = $.ui.ddmanager.droppables[o.scope] || [];
@@ -270,7 +283,7 @@ $.ui.ddmanager = {
 			}
 
 			m[i].offset = m[i].element.offset();
-			m[i].proportions = { width: m[i].element[0].offsetWidth, height: m[i].element[0].offsetHeight };
+			m[i].proportions( { width: m[i].element[0].offsetWidth, height: m[i].element[0].offsetHeight } );
 
 		}
 
